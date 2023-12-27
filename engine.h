@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h> // @CLEANUP: probably dont need
 
 
 #include "raylib.h"

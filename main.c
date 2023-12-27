@@ -1,7 +1,7 @@
 #include "engine.h"
 
-#define STB_DS_IMPLEMENTATION
-#include "stb_ds.h"
+//#define STB_DS_IMPLEMENTATION
+//#include "stb_ds.h"
 
 #define ROOM_WIDTH 16
 #define ROOM_HEIGHT 11
@@ -9,8 +9,11 @@
 #define MAP_HEIGHT 15
 #define MAX_NODES 8
 #define TILE_SIZE 16
-#define ZOOM 1.75f
+#define ZOOM 1.0f
 #define HALF_TILE_SIZE 8
+
+#define MAX(a, b) ((a)>(b)? (a) : (b))
+#define MIN(a, b) ((a)<(b)? (a) : (b))
 
 //
 // TYPES
@@ -52,12 +55,13 @@ typedef struct Tile {
 int cam_offset_y = 15;
 int cam_offset_x = 9;
 
-int screen_width  = 640; 
-int screen_height = 360;
+int window_height = 640;
+int window_width = 450;
+
+int game_width  = 16 * TILE_SIZE; // 640 before
+int game_height = 14 * TILE_SIZE;  // 360 before
 
 float player_game_speed = 200.0f;
-
-float scroll_speed = 1.0f;
 
 Camera2D camera = { 0 };
 Vector2 ui_center = { 0 };
@@ -103,10 +107,16 @@ void load_sounds() {
     
 }
 
-
+RenderTexture2D target;
 void startup() {
-    InitWindow(screen_width, screen_height, "Legend");
-    SetWindowMinSize(screen_width, screen_height);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
+    InitWindow(window_width, window_height, "Legend");
+    SetWindowMinSize(16*TILE_SIZE, 14*TILE_SIZE);
+
+    // Render Texture Initialization, used to hold the rendering result so we can easily resize it
+    target = LoadRenderTexture(game_width, game_height);
+    SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);
+
     
     player.e.pos = (Vector2){ 4 * TILE_SIZE, 11 * TILE_SIZE};
     player.speed = 46.0f;
@@ -278,7 +288,7 @@ void render_map() {
         for (int x = 0; x < ROOM_WIDTH; x++) {
             DrawRectangleRec(
                 (Rectangle){ x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE},
-                BLACK
+                YELLOW
             );
         }
     }
@@ -338,18 +348,22 @@ int main(void) {
 
     // Main game loop
     while (!WindowShouldClose()) {
+
+        //  Compute Frame Buffer Scaling
+        float scale = MIN((float)GetScreenWidth()/game_width, (float)GetScreenHeight()/game_height);
+
         float delta_time = GetFrameTime();
 
         handle_game_logic(&player, &enemy1);
 
         player_update(&player, delta_time);
 
-        update_camera(&camera, &player.e, delta_time, screen_width, screen_height);
+        update_camera(&camera, &player.e, delta_time, game_width, game_height);
 
 
         timer_update(&player.cooldown_timer);
-        
-		BeginDrawing();
+
+        BeginTextureMode(target);
             ClearBackground(LIGHTGRAY);
 
             BeginMode2D(camera);
@@ -365,7 +379,28 @@ int main(void) {
 				0,
                 0
 			);
+        EndTextureMode();
 
+		BeginDrawing();
+            ClearBackground(BLACK);
+            // Draw render texture to screen, properly scaled
+            DrawTexturePro(
+                target.texture, 
+                (Rectangle){ 
+                    0.0f, 
+                    0.0f, 
+                    (float)target.texture.width, 
+                    (float)-target.texture.height 
+                },
+                (Rectangle){ 
+                    (GetScreenWidth() - ((float)game_width*scale))*0.5f, 
+                    (GetScreenHeight() - ((float)game_height*scale))*0.5f,
+                    (float)game_width*scale, 
+                    (float)game_width*scale 
+                }, 
+                (Vector2){ 0, 0 }, 0.0f, 
+                WHITE
+            );
 		EndDrawing();
     }
 
