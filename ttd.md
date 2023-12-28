@@ -1,11 +1,10 @@
 # THINGS TO DO
-**TOTAL TIME = 2 hours**
+**TOTAL TIME = 4 hours**
 
 ### Dec 27
-    [ ] - Full screen
-    [ ] - UI Bar
-    [ ] - Move between "rooms"
-    [ ] - Have the enemy 
+    [x] - Full screen
+    [~ ] - UI Bar
+    [~] - Move between "rooms"
     [x] - Render a red square for an enemy 
     [x] - Register colision when white square attacks the enemy
     [x] - Reduce health points when attacking an enemy

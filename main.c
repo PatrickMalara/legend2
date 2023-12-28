@@ -86,7 +86,7 @@ char map[MAP_HEIGHT][MAP_WIDTH] = {
 };
 
 char room1[ROOM_HEIGHT][ROOM_WIDTH] = {
-    { 't', 't', 't', 't', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
+    { 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
     { 't', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
     { 't', 'g', 'g', 'g', 'g', 't', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
     { 't', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't'},
@@ -98,6 +98,24 @@ char room1[ROOM_HEIGHT][ROOM_WIDTH] = {
     { 't', 't', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
     { 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't'}
 };
+char room2[ROOM_HEIGHT][ROOM_WIDTH] = {
+    { 't', 't', 't', 't', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
+    { 't', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
+    { 't', 'g', 'g', 'g', 'g', 't', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
+    { 't', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't'},
+    { 't', 't', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't'},
+    { 't', 'g', 't', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't'},
+    { 't', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't'},
+    { 't', 'g', 't', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't'},
+    { 't', 't', 't', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't'},
+    { 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
+    { 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't'}
+};
+
+Timer camera_cooldown = { 0 };
+bool camera_is_moving;
+Rectangle room_exit_coll_box;
+Vector2 camera_transition_dest; 
 
 void load_textures() {
     //sprite_sheet = LoadTexture("spritesheet.png");
@@ -121,10 +139,13 @@ void startup() {
     player.e.pos = (Vector2){ 4 * TILE_SIZE, 11 * TILE_SIZE};
     player.speed = 46.0f;
 
-    camera.target = player.e.pos;
-    //camera.offset = (Vector2){screen_width / 2, screen_height / 2};
+    //camera.target = player.e.pos;
+    camera.offset = (Vector2){game_width / 2, game_height / 2};
+    camera.target = (Vector2) {ROOM_WIDTH * TILE_SIZE / 2, (ROOM_HEIGHT+3) * TILE_SIZE / 2};
     camera.rotation = 0.0f;
     camera.zoom = ZOOM;// 3 works
+
+    camera_cooldown.lifetime = 0;
 
     SetTargetFPS(30);
 }
@@ -181,6 +202,12 @@ void player_update(Player *player, float delta_time) {
         player->dir = DIR_DOWN;
     }
 
+    player->coll_box = (Rectangle) {
+        player->e.pos.x,
+        player->e.pos.y,
+        TILE_SIZE,
+        TILE_SIZE
+    };
     
 
     if (IsKeyDown(KEY_U)) {
@@ -311,7 +338,9 @@ void render_map() {
     }
 }
 
-void handle_game_logic(Player *player, Enemy *enemy1) {
+
+
+void handle_game_logic(Player *player, Enemy *enemy1, float delta_time) {
     if (timer_is_done(&player->cooldown_timer) == false && player->is_attacking) {
         // Check if Attack Box is colliding with the Enemy
         bool collision = CheckCollisionRecs(
@@ -325,6 +354,59 @@ void handle_game_logic(Player *player, Enemy *enemy1) {
             enemy1->hp -= 1;
         }
     } 
+
+
+    // For moving to another room 
+        //timer_update(&camera_cooldown
+
+            
+
+            if (camera_is_moving) {
+                // Transition to the other room is done
+                camera.target = Vector2Add(camera.target, (Vector2){0, -200 * delta_time});
+            
+                if (camera.target.y <= camera_transition_dest.y) {
+                    printf("We have stopped the camera transition");
+                    camera_is_moving = false;
+                }
+            } else {
+                bool collision = CheckCollisionRecs(
+                    player->coll_box,
+                    room_exit_coll_box
+                );
+                if (collision) {
+                    printf("Collision with room");
+                    //timer_start(&camera_cooldown, 3);
+                    camera_is_moving = true;
+                    camera_transition_dest = (Vector2){ 0, -1 * 11/2 * TILE_SIZE};
+                }
+
+            }
+
+/*
+        if (timer_is_done(&camera_cooldown)) {
+            bool collision = CheckCollisionRecs(
+                player->coll_box,
+                room_exit_coll_box
+            );
+            if (collision) {
+                printf("Collision with room");
+                timer_start(&camera_cooldown, 3);
+                camera_is_moving = true;
+                camera_transition_dest = (Vector2){ 0, -1 * 11/2 * TILE_SIZE};
+            }
+        }
+        else {
+            // Transition to the other room is done
+            camera.target = Vector2Add(camera.target, (Vector2){0, -200 * delta_time});
+            
+            if (camera.target.y <= camera_transition_dest.y) {
+                printf("We have stopped the camera transition");
+                camera_is_moving = false;
+            }
+        }
+        */
+
 }
 
 int main(void) {
@@ -346,6 +428,9 @@ int main(void) {
     };
     enemy1.hp = 3;
 
+
+    room_exit_coll_box = (Rectangle) { 0, 3 * TILE_SIZE, 4 *TILE_SIZE, TILE_SIZE };
+
     // Main game loop
     while (!WindowShouldClose()) {
 
@@ -354,11 +439,11 @@ int main(void) {
 
         float delta_time = GetFrameTime();
 
-        handle_game_logic(&player, &enemy1);
+        handle_game_logic(&player, &enemy1, delta_time);
 
         player_update(&player, delta_time);
 
-        update_camera(&camera, &player.e, delta_time, game_width, game_height);
+        //update_camera(&camera, &player.e, delta_time, game_width, game_height);
 
 
         timer_update(&player.cooldown_timer);
@@ -371,6 +456,11 @@ int main(void) {
                 render_map();
                 enemy_render(&enemy1);
                 player_render(&player);
+
+    DrawRectangleRec(
+        room_exit_coll_box,
+        PINK
+    );
 
 
             EndMode2D();
