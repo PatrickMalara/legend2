@@ -1,0 +1,9 @@
+LINUX
+
+cc main.c engine.c -lraylib -lGL -lm -lpthread -ldl -lrt -lX11 -o game
+
+
+WINDOWS
+
+gcc main.c engine.c -o game -lraylib -lopengl32 -lgdi32 -lwinmm
+

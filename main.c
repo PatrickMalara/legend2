@@ -48,6 +48,10 @@ typedef struct Tile {
     Vector2 center_position;
 } Tile;
 
+typedef struct Room {
+	int map[11][16];
+} Room;
+
 //
 // GLOBALS
 //
@@ -66,7 +70,7 @@ float player_game_speed = 200.0f;
 Camera2D camera = { 0 };
 Vector2 ui_center = { 0 };
 Player player = { 0 };
-Texture2D sprite_sheet = { 0 };
+Texture2D overworld = { 0 };
 char map[MAP_HEIGHT][MAP_WIDTH] = {
     { 't', 't', 't', 't', 't', 't', 't', 't', 't'},
     { 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't'},
@@ -118,7 +122,7 @@ Rectangle room_exit_coll_box;
 Vector2 camera_transition_dest; 
 
 void load_textures() {
-    //sprite_sheet = LoadTexture("spritesheet.png");
+    overworld = LoadTexture("Overworld.png");
 }
 
 void load_sounds() {
@@ -133,7 +137,7 @@ void startup() {
 
     // Render Texture Initialization, used to hold the rendering result so we can easily resize it
     target = LoadRenderTexture(game_width, game_height);
-    SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);
+    SetTextureFilter(target.texture, TEXTURE_FILTER_POINT);
 
     
     player.e.pos = (Vector2){ 4 * TILE_SIZE, 11 * TILE_SIZE};
@@ -330,10 +334,33 @@ void render_map() {
                 color = LIME;
             }
 
-            DrawRectangleRec(
+            /*DrawRectangleRec(
                 (Rectangle){ x*TILE_SIZE, (3 + y) * TILE_SIZE, TILE_SIZE, TILE_SIZE},   // 3 because of the UI at the top
                 color
-            );
+            ); */
+
+				DrawTextureRec(
+					overworld,
+					(Rectangle){ 7 * TILE_SIZE, 0 * TILE_SIZE, TILE_SIZE, TILE_SIZE},
+					(Vector2){
+						x * TILE_SIZE,
+						(3 + y) * TILE_SIZE
+					},
+					WHITE
+				);
+
+			if (room1[y][x] == 't') {
+				DrawTextureRec(
+					overworld,
+					(Rectangle){ 0 * TILE_SIZE, 10 * TILE_SIZE, TILE_SIZE, TILE_SIZE},
+					(Vector2){
+						x * TILE_SIZE,
+						(3 + y) * TILE_SIZE
+					},
+					WHITE
+				);
+			}
+
         }
     }
 }
@@ -486,7 +513,7 @@ int main(void) {
                     (GetScreenWidth() - ((float)game_width*scale))*0.5f, 
                     (GetScreenHeight() - ((float)game_height*scale))*0.5f,
                     (float)game_width*scale, 
-                    (float)game_width*scale 
+                    (float)game_height*scale 
                 }, 
                 (Vector2){ 0, 0 }, 0.0f, 
                 WHITE
