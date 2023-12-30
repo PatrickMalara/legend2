@@ -1,60 +1,9 @@
 #include "engine.h"
+#include "global.h"
+#include "rooms.h"
 
 //#define STB_DS_IMPLEMENTATION
 //#include "stb_ds.h"
-
-#define ROOM_WIDTH 16
-#define ROOM_HEIGHT 11
-#define MAP_WIDTH 9
-#define MAP_HEIGHT 15
-#define MAX_NODES 8
-#define TILE_SIZE 16
-#define ZOOM 1.0f
-#define HALF_TILE_SIZE 8
-
-#define MAX(a, b) ((a)>(b)? (a) : (b))
-#define MIN(a, b) ((a)<(b)? (a) : (b))
-
-//
-// TYPES
-//
-typedef enum Direction {
-    DIR_UP,
-    DIR_RIGHT,
-    DIR_DOWN,
-    DIR_LEFT,
-} Direction;
-
-typedef struct Player {
-    Entity e;
-    float speed;
-    Direction dir;
-    bool is_attacking;
-    Timer cooldown_timer;   // Cooldown Timer for attacking
-    Rectangle coll_box;     // Player Collision Box
-    Rectangle wp_coll_box;  // Weapon Collision Box
-} Player;
-
-typedef struct Enemy {
-    Entity e;
-    Direction dir;
-    //unsigned char hp;
-    int hp;
-    Rectangle coll_box;
-} Enemy;
-
-typedef struct Tile {
-    //TileType type;
-    Vector2 center_position;
-} Tile;
-
-typedef struct Room {
-	int map[11][16];
-} Room;
-
-//
-// GLOBALS
-//
 
 int cam_offset_y = 15;
 int cam_offset_x = 9;
@@ -71,58 +20,17 @@ Camera2D camera = { 0 };
 Vector2 ui_center = { 0 };
 Player player = { 0 };
 Texture2D overworld = { 0 };
-char map[MAP_HEIGHT][MAP_WIDTH] = {
-    { 't', 't', 't', 't', 't', 't', 't', 't', 't'},
-    { 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't'},
-    { 'g', 'g', 'g', 'g', 'g', 't', 'g', 't', 't'},
-    { 'g', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't'},
-    { 'g', 't', 'g', 'g', 'g', 'g', 'g', 'g', 't'},
-    { 'g', 'g', 't', 'g', 'g', 'g', 'g', 'g', 't'},
-    { 'g', 'g', 't', 'g', 'g', 'g', 'g', 'g', 't'},
-    { 'g', 'g', 't', 'g', 'g', 'g', 'g', 'g', 't'},
-    { 'g', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't'},
-    { 'g', 'g', 't', 'g', 'g', 'g', 'g', 'g', 't'},
-    { 'g', 't', 't', 'g', 'g', 'g', 'g', 'g', 't'},
-    { 'g', 't', 'g', 'g', 'g', 'g', 'g', 't', 't'},
-    { 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't'},
-    { 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't'},
-    { 't', 't', 't', 't', 't', 't', 't', 't', 't'}
-};
-
-char room1[ROOM_HEIGHT][ROOM_WIDTH] = {
-    { 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
-    { 't', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
-    { 't', 'g', 'g', 'g', 'g', 't', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
-    { 't', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't'},
-    { 't', 't', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't'},
-    { 't', 'g', 't', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't'},
-    { 't', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't'},
-    { 't', 'g', 't', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't'},
-    { 't', 't', 't', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't'},
-    { 't', 't', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
-    { 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't'}
-};
-char room2[ROOM_HEIGHT][ROOM_WIDTH] = {
-    { 't', 't', 't', 't', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
-    { 't', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
-    { 't', 'g', 'g', 'g', 'g', 't', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
-    { 't', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't'},
-    { 't', 't', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't'},
-    { 't', 'g', 't', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't'},
-    { 't', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't'},
-    { 't', 'g', 't', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't'},
-    { 't', 't', 't', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't'},
-    { 'g', 'g', 'g', 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't'},
-    { 'g', 'g', 'g', 'g', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't', 't'}
-};
+int wow = 0 ;
 
 Timer camera_cooldown = { 0 };
 bool camera_is_moving;
 Rectangle room_exit_coll_box;
 Vector2 camera_transition_dest; 
+Room *rooms;
 
 void load_textures() {
     overworld = LoadTexture("Overworld.png");
+    wow = 1;
 }
 
 void load_sounds() {
@@ -147,7 +55,7 @@ void startup() {
     camera.offset = (Vector2){game_width / 2, game_height / 2};
     camera.target = (Vector2) {ROOM_WIDTH * TILE_SIZE / 2, (ROOM_HEIGHT+3) * TILE_SIZE / 2};
     camera.rotation = 0.0f;
-    camera.zoom = ZOOM;// 3 works
+    camera.zoom = ZOOM; // 3 works
 
     camera_cooldown.lifetime = 0;
 
@@ -184,33 +92,127 @@ void player_update(Player *player, float delta_time) {
             TILE_SIZE / 2
         };
     }
-
-    if (timer_is_done(&player->cooldown_timer) == false) {
+if (timer_is_done(&player->cooldown_timer) == false) {
         return;
     }
+
+    float a = 1.0f;
 
     if (IsKeyDown(KEY_LEFT)) {
         player->e.pos.x -= player->speed * delta_time;
         player->dir = DIR_LEFT;
+
+        /*
+        if (player->e.pos.y < ((int)player->curr_tile.y)*TILE_SIZE - 1) {
+            player->e.pos.y += player->speed / a * delta_time;
+            //player->e.pos.y += 1;
+        }
+        else if (player->e.pos.y > ((int)player->curr_tile.y)*TILE_SIZE + 1) {
+            player->e.pos.y -= player->speed / a * delta_time;
+            //player->e.pos.y -= 1;
+        }
+        */
     }
-    if (IsKeyDown(KEY_RIGHT)) {
+    else if (IsKeyDown(KEY_RIGHT)) {
         player->e.pos.x += player->speed * delta_time;
         player->dir = DIR_RIGHT;
+
+/*
+        if (player->e.pos.y < ((int)player->curr_tile.y)*TILE_SIZE - 1) {
+            player->e.pos.y += player->speed / a * delta_time;
+            //player->e.pos.y += 1;
+        }
+        else if (player->e.pos.y > ((int)player->curr_tile.y)*TILE_SIZE + 1) {
+            player->e.pos.y -= player->speed / a * delta_time;
+            //player->e.pos.y -= 1;
+        }
+        */
     }
-    if (IsKeyDown(KEY_UP)) {
+    else if (IsKeyDown(KEY_UP)) {
         player->e.pos.y -= player->speed * delta_time;
         player->dir = DIR_UP;
+/*
+        if (player->e.pos.x < ((int)player->curr_tile.x)*TILE_SIZE - 1) {
+            player->e.pos.x += player->speed / a * delta_time;
+            //player->e.pos.x += 1;
+        }
+        else if (player->e.pos.x > ((int)player->curr_tile.x)*TILE_SIZE + 1) {
+            player->e.pos.x -= player->speed / a * delta_time;
+            //player->e.pos.x -= 1;
+        }
+        */
     }
-    if (IsKeyDown(KEY_DOWN)) {
+    else if (IsKeyDown(KEY_DOWN)) {
         player->e.pos.y += player->speed * delta_time;
         player->dir = DIR_DOWN;
+/*
+        if (player->e.pos.x < ((int)player->curr_tile.x)*TILE_SIZE - 1) {
+            player->e.pos.x += player->speed * delta_time;
+            //player->e.pos.x += 1;
+        }
+        else if (player->e.pos.x > ((int)player->curr_tile.x)*TILE_SIZE + 1) {
+            player->e.pos.x -= player->speed / a * delta_time;
+            //player->e.pos.x -= 1;
+        }
+        */
     }
+
+    if (IsKeyReleased(KEY_LEFT)) {
+        if (player->e.pos.y < ((int)player->curr_tile.y)*TILE_SIZE - 1) {
+            //player->e.pos.y += player->speed / a * delta_time;
+            player->e.pos.y += 1;
+        }
+        else if (player->e.pos.y > ((int)player->curr_tile.y)*TILE_SIZE + 1) {
+            //player->e.pos.y -= player->speed / a * delta_time;
+            player->e.pos.y -= 1;
+        }
+    } else if (IsKeyReleased(KEY_RIGHT)) {
+        if (player->e.pos.y < ((int)player->curr_tile.x)*TILE_SIZE - 1) {
+            //player->e.pos.x += player->speed / a * delta_time;
+            player->e.pos.y += 1;
+        }
+        else if (player->e.pos.x > ((int)player->curr_tile.x)*TILE_SIZE + 1) {
+            //player->e.pos.x -= player->speed / a * delta_time;
+            player->e.pos.x -= 1;
+        }
+    } else if (IsKeyReleased(KEY_UP)) {
+        if (player->e.pos.x < ((int)player->curr_tile.x)*TILE_SIZE - 1) {
+            //player->e.pos.x += player->speed / a * delta_time;
+            player->e.pos.x += 1;
+        }
+        else if (player->e.pos.x > ((int)player->curr_tile.x)*TILE_SIZE + 1) {
+            //player->e.pos.x -= player->speed / a * delta_time;
+            player->e.pos.x -= 1;
+        }
+    } else if (IsKeyReleased(KEY_DOWN)) {
+        if (player->e.pos.x < ((int)player->curr_tile.x)*TILE_SIZE - 1) {
+            //player->e.pos.x += player->speed / a* delta_time;
+            player->e.pos.x += 1;
+        }
+        else if (player->e.pos.x > ((int)player->curr_tile.x)*TILE_SIZE + 1) {
+            //player->e.pos.x -= player->speed / a * delta_time;
+            player->e.pos.x -= 1;
+        }
+    }
+
+
 
     player->coll_box = (Rectangle) {
         player->e.pos.x,
         player->e.pos.y,
         TILE_SIZE,
         TILE_SIZE
+    };
+
+/// TEST @TEMP
+    player->center = (Vector2) { 
+        player->e.pos.x + TILE_SIZE/2, 
+        player->e.pos.y + TILE_SIZE/2,
+    };
+    
+    player->curr_tile = (Vector2) {
+        (int)(player->center.x / TILE_SIZE),
+        (int)(player->center.y / TILE_SIZE),
     };
     
 
@@ -226,6 +228,18 @@ void player_update(Player *player, float delta_time) {
 } 
 
 void player_render(Player *player) {
+/*
+    DrawRectangleRec(
+        (Rectangle){ 
+            ((int)player->curr_tile.x) * TILE_SIZE, 
+            ((int)player->curr_tile.y) * TILE_SIZE, 
+            TILE_SIZE, 
+            TILE_SIZE
+        },
+        GRAY
+    );
+    */
+
     // DRAW PLAYER
     DrawRectangleRec(
         (Rectangle){ 
@@ -235,6 +249,16 @@ void player_render(Player *player) {
             TILE_SIZE
         },
         GREEN
+    );
+
+    DrawRectangleRec(
+        (Rectangle){ 
+            player->center.x - 2, 
+            player->center.y - 2,
+            4, 
+            4 
+        },
+        ORANGE
     );
 
         /*
@@ -312,61 +336,6 @@ void enemy_render(Enemy *enemy) {
 void draw_sprite() {
 }
 
-void render_map() {
-    Color color = { 0 };
-
-    for (int y = 0; y < 3; y++) {
-        for (int x = 0; x < ROOM_WIDTH; x++) {
-            DrawRectangleRec(
-                (Rectangle){ x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE},
-                YELLOW
-            );
-        }
-    }
-
-    // Render the first layer of tiles
-    for (int y = 0; y < ROOM_HEIGHT; y++) {
-        for (int x = 0; x < ROOM_WIDTH; x++) {
-            if (room1[y][x] == 'g') {
-                color = BEIGE;
-            }
-            else if (room1[y][x] == 't') {
-                color = LIME;
-            }
-
-            /*DrawRectangleRec(
-                (Rectangle){ x*TILE_SIZE, (3 + y) * TILE_SIZE, TILE_SIZE, TILE_SIZE},   // 3 because of the UI at the top
-                color
-            ); */
-
-				DrawTextureRec(
-					overworld,
-					(Rectangle){ 7 * TILE_SIZE, 0 * TILE_SIZE, TILE_SIZE, TILE_SIZE},
-					(Vector2){
-						x * TILE_SIZE,
-						(3 + y) * TILE_SIZE
-					},
-					WHITE
-				);
-
-			if (room1[y][x] == 't') {
-				DrawTextureRec(
-					overworld,
-					(Rectangle){ 0 * TILE_SIZE, 10 * TILE_SIZE, TILE_SIZE, TILE_SIZE},
-					(Vector2){
-						x * TILE_SIZE,
-						(3 + y) * TILE_SIZE
-					},
-					WHITE
-				);
-			}
-
-        }
-    }
-}
-
-
-
 void handle_game_logic(Player *player, Enemy *enemy1, float delta_time) {
     if (timer_is_done(&player->cooldown_timer) == false && player->is_attacking) {
         // Check if Attack Box is colliding with the Enemy
@@ -436,6 +405,11 @@ void handle_game_logic(Player *player, Enemy *enemy1, float delta_time) {
 
 }
 
+// Free up stuff.. thanks
+void shutdown() {
+    //rooms_free(&rooms);
+}
+
 int main(void) {
     printf("Hello Sailor\n");
 
@@ -444,6 +418,10 @@ int main(void) {
     load_sounds();
 
     // Game stuff initialization
+    rooms = rooms_init();
+    if (rooms == NULL) {
+        printf("ROOMS IS NULL\n");
+    }
     
     Enemy enemy1 = { 0 };
     enemy1.e.pos = (Vector2) { 3 * TILE_SIZE, 3 * TILE_SIZE };
@@ -480,9 +458,19 @@ int main(void) {
 
             BeginMode2D(camera);
 
-                render_map();
+                rooms_render(rooms);
                 enemy_render(&enemy1);
                 player_render(&player);
+
+        DrawTextureRec(
+            overworld,
+            (Rectangle){ 0 * TILE_SIZE, 10 * TILE_SIZE, TILE_SIZE, TILE_SIZE},
+            (Vector2){
+                5 * TILE_SIZE,
+                (3 + 5) * TILE_SIZE
+            },
+            WHITE
+        );
 
     DrawRectangleRec(
         room_exit_coll_box,
